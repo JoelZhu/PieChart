@@ -57,6 +57,8 @@ public class JZPieChart extends View {
 
     // 当前着重显示的栏目
     private int currentAccent = -1;
+    // 上一次动画是否执行完毕
+    private boolean isLastAnimatorFinished = false;
 
     public JZPieChart(Context context) {
         super(context);
@@ -128,12 +130,14 @@ public class JZPieChart extends View {
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
-            if (regions != null && listener != null) {
+            if (regions != null && listener != null && isLastAnimatorFinished) {
                 final int size = regions.length;
                 // 遍历Region数组
                 for (int i = 0; i < size; i++) {
                     // 点击区域是栏目中的一个，输出事件
                     if (regions[i].contains((int) event.getX(), (int) event.getY())) {
+                        // 标志位置否
+                        isLastAnimatorFinished = false;
                         // 如果当前没有着重栏目，进行缩放着重
                         if (currentAccent == -1) {
                             listener.onColumnClick(i);
@@ -336,6 +340,27 @@ public class JZPieChart extends View {
                 invalidate();
             }
         });
+        animator.addListener(new Animator.AnimatorListener() {
+            @Override
+            public void onAnimationStart(Animator animation) {
+
+            }
+
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                isLastAnimatorFinished = true;
+            }
+
+            @Override
+            public void onAnimationCancel(Animator animation) {
+
+            }
+
+            @Override
+            public void onAnimationRepeat(Animator animation) {
+
+            }
+        });
         animator.start();
     }
 
@@ -352,30 +377,28 @@ public class JZPieChart extends View {
                 invalidate();
             }
         });
-        // 如果是从着重显示状态恢复，添加动画完成时的重置操作
-        if (currentAccent != -1) {
-            animator.addListener(new Animator.AnimatorListener() {
-                @Override
-                public void onAnimationStart(Animator animation) {
+        animator.addListener(new Animator.AnimatorListener() {
+            @Override
+            public void onAnimationStart(Animator animation) {
 
-                }
+            }
 
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    currentAccent = -1;
-                }
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                currentAccent = -1;
+                isLastAnimatorFinished = true;
+            }
 
-                @Override
-                public void onAnimationCancel(Animator animation) {
+            @Override
+            public void onAnimationCancel(Animator animation) {
 
-                }
+            }
 
-                @Override
-                public void onAnimationRepeat(Animator animation) {
+            @Override
+            public void onAnimationRepeat(Animator animation) {
 
-                }
-            });
-        }
+            }
+        });
         animator.start();
     }
 
