@@ -1,13 +1,17 @@
 package com.joelzhu.piechart;
 
+import android.animation.Animator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.Region;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.view.View;
 
 import java.text.DecimalFormat;
@@ -20,6 +24,9 @@ import java.util.List;
  * 作用：JoelZhuPieChart
  */
 public class JZPieChart extends View {
+    // 栏目对象点击事件
+    private OnColumnClickListener listener;
+
     // 当前最大角度
     private int currentMaxDegrees;
 
@@ -29,8 +36,11 @@ public class JZPieChart extends View {
     private Rect rect;
     // RectF对象
     private RectF rectF;
-    // 圆弧大小
-//    private float arcWidth;
+    // 绘制Region用Path对象
+    private Path path;
+    // 所有栏目的Region对象数组
+    private Region[] regions;
+
     // 参数区域单位高度
     private int textUnitHeight;
 
@@ -45,8 +55,14 @@ public class JZPieChart extends View {
     // 栏目总数
     private int columnsLength;
 
+    // 当前着重显示的栏目
+    private int currentAccent = -1;
+
     public JZPieChart(Context context) {
         super(context);
+
+        // 初始化控件
+        initWidget();
     }
 
     public JZPieChart(Context context, AttributeSet attrs) {
@@ -95,9 +111,6 @@ public class JZPieChart extends View {
             height = dp2Px(250);
         }
 
-//        // 设置圆弧大小
-//        arcWidth = (float) height / 20;
-
         // 计算参数区域单位高度(每个单位区域分成4部分，上面和下面间隔1个单位，绘制2个单位)
         textUnitHeight = (height * 7 / 8) / columnsLength / 4;
         // 初始化PieChart位置
@@ -110,6 +123,38 @@ public class JZPieChart extends View {
     protected void onDraw(Canvas canvas) {
         // 绘制PieChart
         drawPieChartWithMaxDegrees(canvas, currentMaxDegrees);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            if (regions != null && listener != null) {
+                final int size = regions.length;
+                // 遍历Region数组
+                for (int i = 0; i < size; i++) {
+                    // 点击区域是栏目中的一个，输出事件
+                    if (regions[i].contains((int) event.getX(), (int) event.getY())) {
+                        // 如果当前没有着重栏目，进行缩放着重
+                        if (currentAccent == -1) {
+                            listener.onColumnClick(i);
+                            currentAccent = i;
+                            // 着重栏目显示
+                            accentPieChart();
+                        }
+                        // 如果当前有着重栏目，进行扩展恢复正常状态
+                        else {
+                            // 恢复饼图正常显示
+                            normalPieChart();
+                        }
+
+                        // 事件处理完成，停止回馈上级
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return super.onTouchEvent(event);
     }
 
     /**
@@ -125,6 +170,8 @@ public class JZPieChart extends View {
         rect = new Rect();
         // 初始化RectF对象
         rectF = new RectF();
+        // 初始化Path对象
+        path = new Path();
 
         // 初始化栏目百分比
         columnsPercent = new ArrayList<>();
@@ -146,9 +193,28 @@ public class JZPieChart extends View {
                 // 如果栏目权重不为0，进行绘制
                 paint.reset();
                 paint.setAntiAlias(true);
-                float plusDegrees = columnsPercent.get(i) * maxDegrees;
+                float plusDegrees = currentAccent == i ? columnsPercent.get(i) * 360 :
+                        columnsPercent.get(i) * maxDegrees;
                 paint.setColor(Color.parseColor(colors[i]));
                 canvas.drawArc(rectF, degrees, plusDegrees, true, paint);
+
+                // 如果饼图绘制完成(动画效果完成)，计算各栏目的区域
+                if (maxDegrees == 360 && regions[i] == null) {
+                    // 计算区域边界的Path
+                    path.reset();
+                    path.moveTo(rectF.centerX(), rectF.centerY());
+                    path.lineTo(rectF.centerX() + (float) Math.sin(degrees),
+                            rectF.centerY() + (float) Math.cos(degrees));
+                    path.arcTo(rectF, degrees, plusDegrees);
+                    // 计算Region对象
+                    RectF r = new RectF();
+                    path.computeBounds(r, true);
+                    Region region = new Region();
+                    region.setPath(path, new Region((int) r.left, (int) r.top, (int) r.right, (int) r.bottom));
+                    // 添加到数组中
+                    regions[i] = region;
+                }
+
                 degrees = degrees + plusDegrees;
             }
 
@@ -182,12 +248,6 @@ public class JZPieChart extends View {
             float yPosition = (2 * textUnitHeight - fontMetrics.bottom + fontMetrics.top) / 2 - fontMetrics.top + top;
             canvas.drawText(text, xPosition, yPosition, paint);
         }
-//
-//        paint.reset();
-//        paint.setColor(Color.rgb(126, 192, 238));
-//        paint.setAntiAlias(true);
-//        final int height = getMeasuredHeight();
-//        canvas.drawCircle(height / 2, height / 2, height * 7 / 16 - arcWidth, paint);
     }
 
     /**
@@ -198,9 +258,12 @@ public class JZPieChart extends View {
      * @param colors  栏目颜色
      */
     public void initPieChart(String[] columns, int[] weights, String[] colors) {
+        // 合法性检查
         if (columns.length != colors.length || colors.length != weights.length) {
             throw new RuntimeException("PieCHart's columns doesn't match they colors.");
-        } else {
+        }
+        // 初始化参数
+        else {
             this.columns = columns;
             this.weights = weights;
             this.colors = colors;
@@ -217,6 +280,9 @@ public class JZPieChart extends View {
             for (int weight : weights) {
                 columnsPercent.add(weight / sum);
             }
+
+            // 分配Region数组空间
+            regions = new Region[columnsLength];
         }
     }
 
@@ -250,20 +316,67 @@ public class JZPieChart extends View {
     public void drawPieChartWithAnimation() {
         if (isInitFinished()) {
             if (currentMaxDegrees == 0) {
-                ValueAnimator animator = ValueAnimator.ofInt(0, 360);
-                animator.setDuration(1000);
-                animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                    @Override
-                    public void onAnimationUpdate(ValueAnimator valueAnimator) {
-                        currentMaxDegrees = (int) valueAnimator.getAnimatedValue();
-                        invalidate();
-                    }
-                });
-                animator.start();
+                normalPieChart();
             }
         } else {
             throw new RuntimeException("PieChart must been initialized before draw.");
         }
+    }
+
+    /**
+     * 着重栏目显示
+     */
+    private void accentPieChart() {
+        ValueAnimator animator = ValueAnimator.ofInt(360, 0);
+        animator.setDuration(1000);
+        animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                currentMaxDegrees = (int) valueAnimator.getAnimatedValue();
+                invalidate();
+            }
+        });
+        animator.start();
+    }
+
+    /**
+     * 恢复饼图正常显示
+     */
+    private void normalPieChart() {
+        ValueAnimator animator = ValueAnimator.ofInt(0, 360);
+        animator.setDuration(1000);
+        animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                currentMaxDegrees = (int) valueAnimator.getAnimatedValue();
+                invalidate();
+            }
+        });
+        // 如果是从着重显示状态恢复，添加动画完成时的重置操作
+        if (currentAccent != -1) {
+            animator.addListener(new Animator.AnimatorListener() {
+                @Override
+                public void onAnimationStart(Animator animation) {
+
+                }
+
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    currentAccent = -1;
+                }
+
+                @Override
+                public void onAnimationCancel(Animator animation) {
+
+                }
+
+                @Override
+                public void onAnimationRepeat(Animator animation) {
+
+                }
+            });
+        }
+        animator.start();
     }
 
     /**
@@ -307,5 +420,21 @@ public class JZPieChart extends View {
         }
 
         return returnResult;
+    }
+
+    /**
+     * 栏目对象点击事件
+     */
+    interface OnColumnClickListener {
+        void onColumnClick(int index);
+    }
+
+    /**
+     * 设置点击事件监听器
+     *
+     * @param listener 点击事件监听器
+     */
+    public void setOnColumnClickListener(OnColumnClickListener listener) {
+        this.listener = listener;
     }
 }
