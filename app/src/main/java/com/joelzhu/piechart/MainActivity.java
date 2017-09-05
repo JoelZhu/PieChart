@@ -14,7 +14,8 @@ public class MainActivity extends Activity {
 
         final String[] columns = new String[]{"A", "B", "C", "D", "E"};
         final int[] weights = new int[]{15, 40, 23, 16, 21};
-        final String[] colors = new String[]{"#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#00FFFF"};
+        final int[] colors = new int[]{R.color.colorA, R.color.colorB, R.color.colorC,
+                R.color.colorD, R.color.colorE};
 
         JZPieChart pieChart = (JZPieChart) findViewById(R.id.pieChart);
         pieChart.initPieChart(columns, weights, colors);

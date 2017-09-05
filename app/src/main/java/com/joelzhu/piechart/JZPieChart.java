@@ -10,6 +10,7 @@ import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Region;
+import android.support.v4.content.ContextCompat;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
@@ -49,7 +50,7 @@ public class JZPieChart extends View {
     // 栏目权重
     private int[] weights;
     // 栏目颜色
-    private String[] colors;
+    private int[] colors;
     // 栏目百分比
     private List<Float> columnsPercent;
     // 栏目总数
@@ -199,7 +200,7 @@ public class JZPieChart extends View {
                 paint.setAntiAlias(true);
                 float plusDegrees = currentAccent == i ? columnsPercent.get(i) * 360 :
                         columnsPercent.get(i) * maxDegrees;
-                paint.setColor(Color.parseColor(colors[i]));
+                paint.setColor(ContextCompat.getColor(getContext(), colors[i]));
                 canvas.drawArc(rectF, degrees, plusDegrees, true, paint);
 
                 // 如果饼图绘制完成(动画效果完成)，计算各栏目的区域
@@ -233,7 +234,7 @@ public class JZPieChart extends View {
             // 绘制右侧参数区域示例图标
             paint.reset();
             paint.setAntiAlias(true);
-            paint.setColor(Color.parseColor(colors[i]));
+            paint.setColor(ContextCompat.getColor(getContext(), colors[i]));
             rect.set(left, top, right, bottom);
             canvas.drawRect(rect, paint);
 
@@ -261,7 +262,7 @@ public class JZPieChart extends View {
      * @param weights 栏目权重
      * @param colors  栏目颜色
      */
-    public void initPieChart(String[] columns, int[] weights, String[] colors) {
+    public void initPieChart(String[] columns, int[] weights, int[] colors) {
         // 合法性检查
         if (columns.length != colors.length || colors.length != weights.length) {
             throw new RuntimeException("PieCHart's columns doesn't match they colors.");
