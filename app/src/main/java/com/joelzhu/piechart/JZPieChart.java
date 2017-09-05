@@ -212,10 +212,8 @@ public class JZPieChart extends View {
                             rectF.centerY() + (float) Math.cos(degrees));
                     path.arcTo(rectF, degrees, plusDegrees);
                     // 计算Region对象
-                    RectF r = new RectF();
-                    path.computeBounds(r, true);
                     Region region = new Region();
-                    region.setPath(path, new Region((int) r.left, (int) r.top, (int) r.right, (int) r.bottom));
+                    region.setPath(path, new Region((int) rectF.left, (int) rectF.top, (int) rectF.right, (int) rectF.bottom));
                     // 添加到数组中
                     regions[i] = region;
                 }
