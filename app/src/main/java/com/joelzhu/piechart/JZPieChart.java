@@ -194,14 +194,13 @@ public class JZPieChart extends View {
         // 遍历数组，绘制圆弧
         for (int i = 0; i < columnsLength; i++) {
             // 判断栏目权重是否为0
-            if (columnsPercent.get(i) != 0) {
+            final float deltaD = currentAccent == i ? columnsPercent.get(i) * 360 : columnsPercent.get(i) * maxDegrees;
+            if (columnsPercent.get(i) != 0 && deltaD != 0) {
                 // 如果栏目权重不为0，进行绘制
                 paint.reset();
                 paint.setAntiAlias(true);
-                float plusDegrees = currentAccent == i ? columnsPercent.get(i) * 360 :
-                        columnsPercent.get(i) * maxDegrees;
                 paint.setColor(ContextCompat.getColor(getContext(), colors[i]));
-                canvas.drawArc(rectF, degrees, plusDegrees, true, paint);
+                canvas.drawArc(rectF, degrees, deltaD, true, paint);
 
                 // 如果饼图绘制完成(动画效果完成)，计算各栏目的区域
                 if (maxDegrees == 360 && regions[i] == null) {
@@ -210,15 +209,15 @@ public class JZPieChart extends View {
                     path.moveTo(rectF.centerX(), rectF.centerY());
                     path.lineTo(rectF.centerX() + (float) Math.sin(degrees),
                             rectF.centerY() + (float) Math.cos(degrees));
-                    path.arcTo(rectF, degrees, plusDegrees);
+                    path.arcTo(rectF, degrees, deltaD);
                     // 计算Region对象
                     Region region = new Region();
-                    region.setPath(path, new Region((int) rectF.left, (int) rectF.top, (int) rectF.right, (int) rectF.bottom));
+                    region.setPath(path, new Region((int) rectF.left, (int) rectF.top, (int) rectF.right, (int) rectF
+                            .bottom));
                     // 添加到数组中
                     regions[i] = region;
                 }
-
-                degrees = degrees + plusDegrees;
+                degrees = degrees + deltaD;
             }
 
             // 左 - PieChart宽度加上一个单位高度
@@ -237,8 +236,7 @@ public class JZPieChart extends View {
             canvas.drawRect(rect, paint);
 
             // 绘制右侧参数区域说明文字
-            final String text = String.format("%s (%s)", columns[i], floatToPercent(columnsPercent
-                    .get(i), 1, true));
+            final String text = String.format("%s (%s)", columns[i], floatToPercent(columnsPercent.get(i), 1, true));
             paint.reset();
             paint.setAntiAlias(true);
             paint.setColor(Color.rgb(37, 37, 37));
